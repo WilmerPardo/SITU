@@ -1,0 +1,20 @@
+{% extends "./base.html" %}
+{% block title %}
+    Inicio
+{% endblock %}
+
+{% block body %}
+<center>
+    <article>
+                <p class="animate__animated animate__pulse animate__infinite"
+                    style="font-family: 'Comic Sans MS', sans-serif; font-size: 50px; ">SITU</p><br>
+                <h3>LOGO</h3>
+
+                {% load static %}
+                <img src="{% static 'logo.png' %}" alt="No se encontro imagen no encontrada" width="350" height="220"><br><br>
+                Bienvenido al sistema de prueba de SITU
+                </p>
+                
+            </article>        
+    </center>
+{% endblock body %}

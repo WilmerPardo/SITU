@@ -1,0 +1,28 @@
+{% extends "./base.html" %}
+{% block title %}
+    Pasaje
+{% endblock %}
+
+{% block body %}
+<center>
+    <article>
+        <p class="animate__animated animate__pulse animate__infinite"
+        style="font-family: 'Comic Sans MS', sans-serif; font-size: 50px; ">SITU</p><br>
+    </article>        
+</center>
+<h2>Gestión de Pasajeros</h2>
+        <div class="card">
+            <div class="card-body">
+                <form action="" method="post" enctype ="multipart/form-data" >
+                    {% csrf_token %}
+                    {{form}}
+                    <hr>
+                    <div class="d-flex justify-content-center">
+                        <a href="{% url 'pasajeros' %}" class="btn btn-secondary">Cancelar</a>
+                        &nbsp;
+                        <input type="submit" value="Editar" class="btn btn-primary">
+                    </div>
+                </form>
+            </div>
+        </div>
+{% endblock body %}

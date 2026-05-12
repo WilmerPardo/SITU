@@ -1,0 +1,82 @@
+{% extends "./base.html" %}
+{% block title %}
+    PASAJE
+{% endblock %}
+
+{% block body %}
+<center>
+    <article>
+        <p class="animate__animated animate__pulse animate__infinite"
+                    style="font-family: 'Comic Sans MS', sans-serif; font-size: 50px; ">SITU</p><br>
+                
+    </article>        
+</center>
+<!-- Modal para agregar pasajero -->
+<div class="modal fade" id="modalAgregarPasajero" tabindex="-1" aria-labelledby="modalAgregarPasajeroLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="modalAgregarPasajeroLabel">Agregar Pasajero</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+            </div>
+            <form action="{% url 'pasajeros' %}" method="post" enctype="multipart/form-data">
+                {% csrf_token %}
+                <div class="modal-body">
+                    {{ form.as_p }}
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-success">Guardar</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<div class="card">
+        <div class="d-flex justify-content-between align-items-center px-3 pt-3">
+            <h1 class="mb-0">Listado de Pasajeros</h1>
+            <a href="{% url 'pasajerosCreate' %}" class="btn btn-success">
+                ➕ Agregar
+            </a>
+        </div>
+        <hr>
+        <div class="table-responsive py-2">
+            <table class="table table-striped table-hover table-responsive-sa">
+                <thead>
+                    <tr>
+                        <th>#</th>
+                        <th>Cedula</th>
+                        <th>Nombre</th>
+                        <th>Apellido</th>
+                        <th>Telefono</th>
+                        <th>Imagen</th>
+                        <th colspan="2">Opciones</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for e in pasajeros %}
+                    <tr>
+                        <td>{{forloop.counter}}</td>
+                        <td>{{e.cedula}}</td>
+                        <td>{{e.nombre}}</td>
+                        <td>{{e.apellido}}</td>
+                        <td>{{e.telefono}}</td>
+                        
+                        <td>
+                        {% load static %}
+                        <img src="{% static 'logo.png' %}" alt="Imagen no encontrada" width="65" height="50"><br>
+                        {{e.imagen}}
+                        </td>
+                        <td>{{e.correo}}</td>
+                        <td>
+                            <a href="{% url 'pasajerosEdit' e.id %}" class="btn btn-info">Editar</a>
+                            <a href="{% url 'pasajerosDelete' e.id %}" class="btn btn-danger" onclick="return confirm('¿Estás seguro de que deseas eliminar a {{ e.nombre }}?');">Eliminar</a>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        </div>
+{% endblock body %}
