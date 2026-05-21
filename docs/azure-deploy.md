@@ -39,6 +39,7 @@ Si usas Azure Database for MySQL Flexible Server, usa este formato:
 
 ```env
 DATABASE_URL=mysql://usuario:password@servidor.mysql.database.azure.com:3306/situ
+DB_SSL_MODE=require
 ```
 
 `ALLOWED_HOSTS` y `CSRF_TRUSTED_ORIGINS` pueden configurarse manualmente, pero la app tambien agrega automaticamente el hostname que Azure expone en `WEBSITE_HOSTNAME`.

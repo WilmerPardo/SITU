@@ -130,6 +130,10 @@ if DATABASE_URL:
             "sslmode",
             os.environ.get("DB_SSL_MODE", "require"),
         )
+    elif database_config.get("ENGINE") == "django.db.backends.mysql":
+        db_ssl_mode = os.environ.get("DB_SSL_MODE", "require").lower()
+        if db_ssl_mode not in ("disable", "disabled", "false", "0"):
+            database_config.setdefault("OPTIONS", {}).setdefault("ssl", {})
     DATABASES["default"] = database_config
 else:
     azure_postgres = {
