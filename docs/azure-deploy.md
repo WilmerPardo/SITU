@@ -1,11 +1,11 @@
 # Despliegue de SITU en Azure App Service
 
-Esta aplicacion esta preparada para ejecutarse en Azure App Service para Linux con Django, Gunicorn, WhiteNoise, PostgreSQL y almacenamiento opcional de imagenes en Azure Blob Storage.
+Esta aplicacion esta preparada para ejecutarse en Azure App Service para Linux con Django, Gunicorn, WhiteNoise, PostgreSQL o MySQL, y almacenamiento opcional de imagenes en Azure Blob Storage.
 
 ## Recursos recomendados
 
 - App Service para Linux con runtime Python 3.13.
-- Azure Database for PostgreSQL Flexible Server para la base de datos.
+- Azure Database for PostgreSQL Flexible Server para la base de datos. Si tu suscripcion no ofrece PostgreSQL, usa Azure Database for MySQL Flexible Server.
 - Storage Account con un contenedor `media` si vas a conservar imagenes subidas.
 - GitHub como origen de despliegue continuo.
 
@@ -33,6 +33,12 @@ DATABASE_URL=postgresql://usuario:password@servidor.postgres.database.azure.com:
 DB_SSL_MODE=require
 SECURE_SSL_REDIRECT=True
 SECURE_HSTS_SECONDS=0
+```
+
+Si usas Azure Database for MySQL Flexible Server, usa este formato:
+
+```env
+DATABASE_URL=mysql://usuario:password@servidor.mysql.database.azure.com:3306/situ
 ```
 
 `ALLOWED_HOSTS` y `CSRF_TRUSTED_ORIGINS` pueden configurarse manualmente, pero la app tambien agrega automaticamente el hostname que Azure expone en `WEBSITE_HOSTNAME`.

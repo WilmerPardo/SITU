@@ -4,4 +4,5 @@ dj-database-url>=2.3,<3.0
 django-storages[azure]>=1.14,<2.0
 gunicorn>=23.0,<26.0
 psycopg[binary]>=3.2,<4.0
+PyMySQL>=1.1,<2.0
 whitenoise>=6.8,<7.0
