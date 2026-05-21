@@ -11,7 +11,9 @@ https://docs.djangoproject.com/en/4.0/ref/settings/
 """
 import os
 from pathlib import Path
+
 import dj_database_url
+from django.core.exceptions import ImproperlyConfigured
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -24,20 +26,42 @@ def env_bool(name, default=False):
 def env_list(name, default=""):
     return [item.strip() for item in os.environ.get(name, default).split(",") if item.strip()]
 
+
+def env_int(name, default=0):
+    try:
+        return int(os.environ.get(name, default))
+    except (TypeError, ValueError):
+        return default
+
+
+def env_path(name, default):
+    return Path(os.environ.get(name, default))
+
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/4.0/howto/deployment/checklist/
 
-# SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = os.environ.get(
-    "SECRET_KEY",
-    "django-insecure-af(gu6!2993md_qjot2c1pfwz=sb(q$-$xhnjhq^=_kkt@r@_7",
-)
-
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = env_bool("DEBUG", True)
+AZURE_WEBSITE_HOSTNAME = os.environ.get("WEBSITE_HOSTNAME")
+DEBUG = env_bool("DEBUG", AZURE_WEBSITE_HOSTNAME is None)
+
+# SECURITY WARNING: keep the secret key used in production secret!
+SECRET_KEY = os.environ.get("SECRET_KEY")
+if not SECRET_KEY:
+    if DEBUG:
+        SECRET_KEY = "django-insecure-local-dev-only-change-me"
+    else:
+        raise ImproperlyConfigured("SECRET_KEY must be configured when DEBUG=False.")
 
 ALLOWED_HOSTS = env_list("ALLOWED_HOSTS", "localhost,127.0.0.1")
 CSRF_TRUSTED_ORIGINS = env_list("CSRF_TRUSTED_ORIGINS")
+
+if AZURE_WEBSITE_HOSTNAME and AZURE_WEBSITE_HOSTNAME not in ALLOWED_HOSTS:
+    ALLOWED_HOSTS.append(AZURE_WEBSITE_HOSTNAME)
+
+if AZURE_WEBSITE_HOSTNAME:
+    azure_origin = f"https://{AZURE_WEBSITE_HOSTNAME}"
+    if azure_origin not in CSRF_TRUSTED_ORIGINS:
+        CSRF_TRUSTED_ORIGINS.append(azure_origin)
 
 
 # Application definition
@@ -94,9 +118,36 @@ DATABASES = {
     }
 }
 
+DATABASE_CONN_MAX_AGE = env_int("DB_CONN_MAX_AGE", 600)
 DATABASE_URL = os.environ.get("DATABASE_URL")
 if DATABASE_URL:
-    DATABASES["default"] = dj_database_url.parse(DATABASE_URL, conn_max_age=600)
+    database_config = dj_database_url.parse(
+        DATABASE_URL,
+        conn_max_age=DATABASE_CONN_MAX_AGE,
+    )
+    if database_config.get("ENGINE") == "django.db.backends.postgresql":
+        database_config.setdefault("OPTIONS", {}).setdefault(
+            "sslmode",
+            os.environ.get("DB_SSL_MODE", "require"),
+        )
+    DATABASES["default"] = database_config
+else:
+    azure_postgres = {
+        "NAME": os.environ.get("AZURE_POSTGRESQL_NAME"),
+        "USER": os.environ.get("AZURE_POSTGRESQL_USER"),
+        "PASSWORD": os.environ.get("AZURE_POSTGRESQL_PASSWORD"),
+        "HOST": os.environ.get("AZURE_POSTGRESQL_HOST"),
+        "PORT": os.environ.get("AZURE_POSTGRESQL_PORT", "5432"),
+    }
+    if all(azure_postgres[key] for key in ("NAME", "USER", "PASSWORD", "HOST")):
+        DATABASES["default"] = {
+            "ENGINE": "django.db.backends.postgresql",
+            **azure_postgres,
+            "CONN_MAX_AGE": DATABASE_CONN_MAX_AGE,
+            "OPTIONS": {
+                "sslmode": os.environ.get("DB_SSL_MODE", "require"),
+            },
+        }
 
 
 # Password validation
@@ -132,7 +183,7 @@ USE_TZ = True
 
 # Static files (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/4.0/howto/static-files/
-STATIC_URL = 'static/'
+STATIC_URL = os.environ.get("DJANGO_STATIC_URL", "/static/")
 
 STATICFILES_DIRS = [
     BASE_DIR / "templates/static",
@@ -142,15 +193,89 @@ STATICFILES_DIRS = [
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
-STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
+STATIC_ROOT = env_path("DJANGO_STATIC_ROOT", BASE_DIR / "staticfiles")
 STORAGES = {
     "default": {
         "BACKEND": "django.core.files.storage.FileSystemStorage",
     },
     "staticfiles": {
-        "BACKEND": "whitenoise.storage.CompressedManifestStaticFilesStorage",
+        "BACKEND": (
+            "django.contrib.staticfiles.storage.StaticFilesStorage"
+            if DEBUG
+            else "whitenoise.storage.CompressedManifestStaticFilesStorage"
+        ),
     },
 }
 
-MEDIA_URL = "/media/"
-MEDIA_ROOT = BASE_DIR
+MEDIA_URL = os.environ.get("DJANGO_MEDIA_URL", "/media/")
+MEDIA_ROOT = env_path(
+    "DJANGO_MEDIA_ROOT",
+    Path("/home/site/media") if AZURE_WEBSITE_HOSTNAME else BASE_DIR,
+)
+
+AZURE_STORAGE_CONNECTION_STRING = (
+    os.environ.get("AZURE_STORAGE_CONNECTION_STRING")
+    or os.environ.get("AZURE_CONNECTION_STRING")
+)
+AZURE_STORAGE_ACCOUNT_NAME = (
+    os.environ.get("AZURE_STORAGE_ACCOUNT_NAME")
+    or os.environ.get("AZURE_ACCOUNT_NAME")
+)
+AZURE_STORAGE_ACCOUNT_KEY = (
+    os.environ.get("AZURE_STORAGE_ACCOUNT_KEY")
+    or os.environ.get("AZURE_ACCOUNT_KEY")
+)
+AZURE_STORAGE_CONTAINER = (
+    os.environ.get("AZURE_STORAGE_CONTAINER")
+    or os.environ.get("AZURE_CONTAINER")
+    or "media"
+)
+
+if AZURE_STORAGE_CONNECTION_STRING or (
+    AZURE_STORAGE_ACCOUNT_NAME and AZURE_STORAGE_ACCOUNT_KEY
+):
+    azure_storage_options = {
+        "azure_container": AZURE_STORAGE_CONTAINER,
+        "expiration_secs": env_int("AZURE_STORAGE_URL_EXPIRATION_SECS", 3600),
+    }
+    if AZURE_STORAGE_CONNECTION_STRING:
+        azure_storage_options["connection_string"] = AZURE_STORAGE_CONNECTION_STRING
+    else:
+        azure_storage_options["account_name"] = AZURE_STORAGE_ACCOUNT_NAME
+        azure_storage_options["account_key"] = AZURE_STORAGE_ACCOUNT_KEY
+
+    STORAGES["default"] = {
+        "BACKEND": "storages.backends.azure_storage.AzureStorage",
+        "OPTIONS": azure_storage_options,
+    }
+
+
+SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
+SECURE_SSL_REDIRECT = env_bool("SECURE_SSL_REDIRECT", not DEBUG)
+SESSION_COOKIE_SECURE = env_bool("SESSION_COOKIE_SECURE", not DEBUG)
+CSRF_COOKIE_SECURE = env_bool("CSRF_COOKIE_SECURE", not DEBUG)
+SECURE_HSTS_SECONDS = env_int("SECURE_HSTS_SECONDS", 0)
+SECURE_HSTS_INCLUDE_SUBDOMAINS = env_bool("SECURE_HSTS_INCLUDE_SUBDOMAINS", False)
+SECURE_HSTS_PRELOAD = env_bool("SECURE_HSTS_PRELOAD", False)
+
+LOG_LEVEL = os.environ.get("LOG_LEVEL", "INFO")
+LOGGING = {
+    "version": 1,
+    "disable_existing_loggers": False,
+    "handlers": {
+        "console": {
+            "class": "logging.StreamHandler",
+        },
+    },
+    "root": {
+        "handlers": ["console"],
+        "level": LOG_LEVEL,
+    },
+    "loggers": {
+        "django": {
+            "handlers": ["console"],
+            "level": LOG_LEVEL,
+            "propagate": False,
+        },
+    },
+}
